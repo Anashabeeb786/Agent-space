@@ -1,8 +1,7 @@
 # Agent Space
 
-A real-time dashboard for monitoring your [OpenClaw](https://openclaw.com) AI agent team — presented as an interactive office map.
+A real-time dashboard for monitoring your [OpenClaw] https://agent-space.onrender.com/ AI agent team — presented as an interactive office map.
 
-[![CI](https://github.com/madhavsomani/agent-space/actions/workflows/ci.yml/badge.svg)](https://github.com/madhavsomani/agent-space/actions/workflows/ci.yml)
 ![Agent Space](https://img.shields.io/badge/status-beta-blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Deploy on Fly.io](https://img.shields.io/badge/Deploy-Fly.io-blueviolet)](https://fly.io/launch?source=https://github.com/madhavsomani/agent-space)
