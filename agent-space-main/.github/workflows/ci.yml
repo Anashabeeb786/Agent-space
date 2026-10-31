@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Syntax checks (Node)
+        run: |
+          node --check server.js
+          node --check app.js
+          node --check tab-queue.js
+          node --check tab-tokens.js
+          node --check tab-comm-graph.js
+          node --check tab-system.js
+          node --check tab-memory.js
+          node --check tab-performance.js
+          node --check tab-timeline.js
+
+      - name: Start server (demo mode)
+        run: |
+          node server.js --demo &
+          sleep 2
+
+      - name: Run smoke tests
+        run: node test/smoke.mjs
+
+      - name: Run auth tests
+        run: npm run test:auth -- 19998
+
+      - name: Run E2E tests
+        run: node test/e2e.mjs

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Plans — Agent Space</title>
+<style>
+:root { --bg: #0d1117; --card: #161b22; --border: #21262d; --text: #e6edf3; --sub: #7d8590; --green: #3fb950; --blue: #58a6ff; --red: #f85149; --purple: #d2a8ff; --orange: #d29922; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
+.header-inner { max-width: 800px; margin: 0 auto; }
+.header h1 { font-size: 18px; }
+.header .sub { font-size: 12px; color: var(--sub); margin-top: 2px; }
+.wrap { max-width: 800px; margin: 0 auto; padding: 12px 16px 80px; }
+.bar-wrap { margin: 12px 0; }
+.bar-stats { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+.bar-num { font-size: 24px; font-weight: 700; color: var(--green); }
+.bar { background: var(--border); border-radius: 99px; height: 8px; overflow: hidden; }
+.bar-fill { background: var(--green); height: 100%; border-radius: 99px; transition: width 0.5s; }
+.agent { margin-top: 20px; }
+.agent-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px 10px 0 0; cursor: pointer; }
+.agent-header:hover { background: rgba(255,255,255,0.03); }
+.agent-name { font-size: 14px; font-weight: 600; color: var(--blue); }
+.agent-pct { font-size: 12px; color: var(--green); font-weight: 600; }
+.agent-status { font-size: 11px; color: var(--sub); margin-top: 2px; }
+.agent-body { background: var(--card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; overflow: hidden; }
+.section { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.section-label { font-size: 10px; color: var(--purple); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 600; }
+.line { font-size: 12px; line-height: 1.6; }
+.done { color: var(--green); }
+.todo { color: var(--sub); }
+.blocked { color: var(--red); }
+.state-line { color: var(--text); font-size: 12px; line-height: 1.5; }
+.state-key { color: var(--blue); font-weight: 600; }
+pre { font-size: 11px; color: var(--sub); white-space: pre-wrap; word-break: break-word; }
+.refresh { text-align: center; color: var(--sub); font-size: 10px; padding: 16px; }
+a.back { color: var(--blue); text-decoration: none; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="header"><div class="header-inner"><a class="back" href="/">← Dashboard</a><h1>📋 Agent Plans</h1><div class="sub">Live from plan.md + state.md · Refreshes every 30s</div></div></div>
+<div class="wrap">
+<div class="bar-wrap">
+  <div class="bar-stats"><span class="bar-num" id="total-done">--</span><span id="total-label">/ -- tasks</span></div>
+  <div class="bar"><div class="bar-fill" id="total-bar" style="width:0%"></div></div>
+</div>
+<div id="agents"></div>
+<div class="refresh" id="ts"></div>
+</div>
+<script>
+const LABELS = { 'coding-agent-1': '🔨 CA1 — ItineraryWala', 'coding-agent-2': '🖥️ CA2 — Agent Space', 'qa': '🔍 QA Agent', 'writer': '✍️ Writer Agent' };
+
+function renderPlan(md) {
+  return md.split('\n').map(l => {
+    if (/^\- \[x\]/.test(l)) return `<div class="line done">✅ ${l.replace(/^- \[x\] /,'')}</div>`;
+    if (/^\- \[ \].*BLOCKED|^\- \[ \].*⚠️/.test(l)) return `<div class="line blocked">🔴 ${l.replace(/^- \[ \] /,'')}</div>`;
+    if (/^\- \[ \]/.test(l)) return `<div class="line todo">☐ ${l.replace(/^- \[ \] /,'')}</div>`;
+    if (/^## /.test(l)) return `<div style="font-weight:600;color:var(--text);margin-top:8px;font-size:12px">${l.replace(/^## /,'')}</div>`;
+    if (/^### /.test(l)) return `<div style="font-weight:600;color:var(--purple);margin-top:6px;font-size:11px">${l.replace(/^### /,'')}</div>`;
+    return '';
+  }).filter(Boolean).join('');
+}
+
+function renderState(md) {
+  return md.split('\n').map(l => {
+    if (/^## /.test(l)) {
+      const parts = l.replace(/^## /,'').split(':');
+      if (parts.length >= 2) return `<div class="state-line"><span class="state-key">${parts[0].trim()}:</span> ${parts.slice(1).join(':').trim()}</div>`;
+      return `<div style="font-weight:600;color:var(--text);font-size:12px;margin-top:4px">${parts[0]}</div>`;
+    }
+    if (/^- /.test(l)) return `<div class="state-line" style="padding-left:12px">${l}</div>`;
+    return '';
+  }).filter(Boolean).join('');
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api/plan');
+    const d = await r.json();
+    if (!d.ok) return;
+    document.getElementById('total-done').textContent = d.totalDone;
+    document.getElementById('total-label').textContent = `/ ${d.totalAll} tasks (${d.totalPercent}%)`;
+    document.getElementById('total-bar').style.width = d.totalPercent + '%';
+    let html = '';
+    for (const [name, a] of Object.entries(d.agents)) {
+      const label = LABELS[name] || name;
+      const statusMatch = a.state.match(/## Status: (.+)/);
+      const itemMatch = a.state.match(/## Current Item: (.+)/);
+      const status = statusMatch ? statusMatch[1] : '?';
+      const item = itemMatch ? itemMatch[1] : '?';
+      const dot = status.toLowerCase().includes('active') ? '🟢' : '⚪';
+      html += `<div class="agent">`;
+      html += `<div class="agent-header" onclick="this.parentElement.classList.toggle('open')">`;
+      html += `<div><div class="agent-name">${dot} ${label}</div><div class="agent-status">→ ${item}</div></div>`;
+      html += `<div class="agent-pct">${a.done}/${a.total} (${a.percent}%)</div>`;
+      html += `</div>`;
+      html += `<div class="agent-body" style="display:none">`;
+      html += `<div class="section"><div class="section-label">State</div>${renderState(a.state)}</div>`;
+      html += `<div class="section"><div class="section-label">Plan</div>${renderPlan(a.plan)}</div>`;
+      html += `</div></div>`;
+    }
+    document.getElementById('agents').innerHTML = html;
+    // Make open class toggle body visibility
+    document.querySelectorAll('.agent').forEach(el => {
+      const body = el.querySelector('.agent-body');
+      if (el.classList.contains('open')) body.style.display = 'block';
+    });
+    document.querySelectorAll('.agent-header').forEach(h => {
+      h.onclick = () => { const b = h.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none'; };
+    });
+    document.getElementById('ts').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) { console.error(e); }
+}
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
