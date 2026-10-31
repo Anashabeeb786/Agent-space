@@ -14,4 +14,4 @@ ENV PORT=18790 \
 
 EXPOSE 18790
 
-CMD ["node", "server.js"]
+CMD ["node", "server.js", "--demo"]add 
